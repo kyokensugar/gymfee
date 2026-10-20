@@ -51,6 +51,17 @@ textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;bor
 .chk{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
 .bulk{margin-top:8px;padding:8px;border:1px dashed #cbd5e1;border-radius:8px}
 .bulk input[type=number]{width:80px}
+.sharebar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 12px}
+.sharebar button{padding:10px 14px}
+#sumOv{position:fixed;inset:0;background:#f4f6fb;z-index:50;overflow:auto;display:none;padding:14px}
+#sumOv.on{display:block}
+.sumcard{max-width:520px;margin:0 auto;background:#fff;border-radius:14px;border:1px solid var(--line);padding:16px}
+.sumcard h3{margin:0;font-size:18px;color:#1e3a8a}
+.sumcard .per{font-size:13px;color:var(--sub);margin:2px 0 8px}
+.sumcard table td,.sumcard table th{font-size:13px;padding:5px 3px}
+.sumcard .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.sumtools{max-width:520px;margin:10px auto 0;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+body.ovon main{display:none} body.ovon header{display:none}
 @media (max-width:560px){
  .plist td:nth-child(2){width:84px}.plist td:nth-child(3){width:118px}
  .plist select{font-size:13px;padding:6px 4px}
@@ -71,7 +82,7 @@ textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;bor
  ② <b>体育館に払った額</b>（あなたが現金で払った額）をその日ごとに入れる<br>
  ③ <b>参加者</b>を追加して、それぞれ「現金→私」か「PayPay→Boss」を選ぶ（名前は空でもOK／「まとめて追加」も可）<br>
  ④ <b>Bossから受け取った額</b>を入れる（ふつうは体育館代と同じ）<br>
- ⑤ 一番下の <b>精算結果</b> を見て、その金額を渡す → LINE用の文面もコピーできます
+ ⑤ 一番下の <b>精算結果</b> を見て、その金額を渡す → 「Bossに送る」でLINEに送れます／「サマリ画面」はスクショして送れます
  <div class="hint" style="margin-top:6px">入力内容はこの端末のブラウザに自動保存されます（サーバーには送られません）。</div>
 </div>
 
@@ -109,6 +120,7 @@ textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;bor
 </div>
 
 </main>
+<div id="sumOv"></div>
 <script>
 const KEY='gymSeisan:v1';
 const yen=n=>(n<0?'-':'')+'¥'+Math.abs(Math.round(n)).toLocaleString('ja-JP');
@@ -205,6 +217,7 @@ function renderResult(){
  const ruleTxt={boss:`黒字・赤字はすべて${B()}のもの（あなたは立て替えただけなので±0円になるように精算）`,half:`黒字・赤字は${B()}とあなたで半分ずつ`,me:`黒字・赤字はすべてあなたのもの（${B()}は±0円）`}[S.settings.rule];
  el.innerHTML=`<h2>精算結果（${S.days.length}日分・参加 延べ${t.n}人）</h2>
  ${big}
+ <div class="sharebar noprint"><button class="pri" id="shareBtn">${esc(B())}に送る（LINEなど）</button><button id="sumBtn">サマリ画面を表示</button></div>
  <div style="overflow-x:auto"><table>
   <thead><tr><th>日付</th><th class="num">体育館代</th><th class="num">現金→私</th><th class="num">PayPay→${esc(B())}</th><th class="num">${esc(B())}→私</th><th class="num">黒字/赤字</th><th class="num">私の手元</th></tr></thead>
   <tbody>${rows}</tbody>
@@ -222,7 +235,47 @@ function renderResult(){
  <textarea id="msg" readonly>${esc(message(t))}</textarea>
  <div class="row noprint" style="margin-top:6px"><button class="pri" id="copyBtn">文面をコピー</button><span class="hint" id="copied"></span></div>`;
  document.getElementById('copyBtn').onclick=copyMsg;
+ document.getElementById('shareBtn').onclick=shareMsg;
+ document.getElementById('sumBtn').onclick=openSum;
 }
+function shareMsg(){
+ const text=message(totals());
+ if(navigator.share){navigator.share({text}).catch(()=>{});return}
+ copyText(text,()=>alert('文面をコピーしました。LINEに貼り付けて送ってください。'));
+}
+function copyText(text,done){
+ if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,()=>fallbackCopy(text,done))}else fallbackCopy(text,done)}
+function fallbackCopy(text,done){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();done()}
+function openSum(){
+ const t=totals(),tr=Math.round(t.transfer);
+ const ds=S.days.map(d=>d.date).filter(Boolean).sort();
+ const per=ds.length?(ds[0]===ds[ds.length-1]?fmtDate(ds[0]):`${fmtDate(ds[0])} 〜 ${fmtDate(ds[ds.length-1])}`):'';
+ const big=tr>0?`<div class="big toboss">私 → ${esc(B())}さん<br><span style="font-size:30px">${yen(tr)}</span><div style="font-size:14px;font-weight:normal">お返しします</div></div>`
+  :tr<0?`<div class="big tome">${esc(B())}さん → 私<br><span style="font-size:30px">${yen(-tr)}</span><div style="font-size:14px;font-weight:normal">いただければ精算完了</div></div>`
+  :`<div class="big even">過不足なし（±0円）</div>`;
+ const rows=S.days.map(d=>{const c=calc(d);return `<tr><td>${esc(fmtDate(d.date))}</td><td class="num">${yen(c.gym)}</td><td class="num m-cash">${yen(c.cash)}<br><small>${c.nc}人</small></td><td class="num m-pp">${yen(c.pp)}<br><small>${c.np}人</small></td><td class="num">${yen(c.reimb)}</td></tr>`}).join('');
+ document.getElementById('sumOv').innerHTML=`<div class="sumcard">
+  <h3>体育館代 精算のまとめ</h3><div class="per">${esc(per)}（${S.days.length}日分・参加 延べ${t.n}人）</div>
+  ${big}
+  <table><thead><tr><th>日付</th><th class="num">体育館代<br>(私が支払い)</th><th class="num">現金<br>→私</th><th class="num">PayPay<br>→${esc(B())}</th><th class="num">${esc(B())}<br>→私</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><th>合計</th><th class="num">${yen(t.gym)}</th><th class="num">${yen(t.cash)}</th><th class="num">${yen(t.pp)}</th><th class="num">${yen(t.reimb)}</th></tr></tfoot></table>
+  <div style="margin-top:10px">
+   <div class="kv"><span>私が受け取った額（現金＋${esc(B())}さんから）</span><b>${yen(t.cash+t.reimb)}</b></div>
+   <div class="kv"><span>私が払った額（体育館代）</span><b>${yen(t.gym)}</b></div>
+   <div class="kv"><span>私の手元に残っている額</span><b>${yen(t.me)}</b></div>
+   ${S.settings.rule!=='boss'?`<div class="kv"><span>私の取り分（${S.settings.rule==='half'?'黒字の半分':'黒字の全部'}）</span><b>${yen(t.fairMe)}</b></div>`:''}
+   <div class="kv"><span>全体の${t.profit>=0?'黒字':'赤字'}（集金 − 体育館代）</span><b>${yen(Math.abs(t.profit))}</b></div>
+  </div>
+  ${t.none?`<div class="hint" style="color:var(--red);margin-top:6px">※ 未払い ${yen(t.none)} は含めていません</div>`:''}
+ </div>
+ <div class="sumtools"><button class="pri" id="ovShare">文面で送る（LINEなど）</button><button id="ovClose">閉じる</button></div>
+ <div class="hint" style="text-align:center;margin-top:8px">この画面をスクショして、そのまま送ることもできます。</div>`;
+ document.getElementById('ovShare').onclick=shareMsg;
+ document.getElementById('ovClose').onclick=closeSum;
+ document.getElementById('sumOv').classList.add('on');document.body.classList.add('ovon');window.scrollTo(0,0);
+}
+function closeSum(){document.getElementById('sumOv').classList.remove('on');document.body.classList.remove('ovon')}
 function fmtDate(s){if(!s)return '(日付なし)';const d=new Date(s+'T00:00:00');return `${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`}
 function message(t){
  const tr=Math.round(t.transfer);
