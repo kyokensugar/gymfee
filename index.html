@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>体育館代 精算ツール</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#1f2937;--sub:#6b7280;--line:#e5e7eb;--blue:#2563eb;--red:#dc2626;--green:#059669;--cash:#b45309;--pp:#e11d48}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{background:#1e3a8a;color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:20px}
+header p{margin:4px 0 0;font-size:13px;opacity:.85}
+main{max-width:860px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px}
+label{font-size:13px;color:var(--sub)}
+input,select{font:inherit;padding:7px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;min-width:0}
+input[type=number]{width:100%;text-align:right}
+button{font:inherit;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;background:#e5e7eb;color:var(--ink)}
+button.pri{background:var(--blue);color:#fff}
+button.del{background:none;color:var(--red);padding:4px 8px}
+button.sm{padding:5px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:3px}
+.day{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden;background:#fff}
+.dayhead{display:flex;gap:8px;align-items:center;padding:10px 12px;background:#eef2ff;flex-wrap:wrap}
+.dayhead input[type=date]{font-weight:bold}
+.dayhead .memo{flex:1;min-width:120px}
+.daybody{padding:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{font-size:12px;color:var(--sub);font-weight:normal}
+td.num,th.num{text-align:right;white-space:nowrap}
+.plist input[type=text]{width:100%}
+.plist td:nth-child(2){width:110px}
+.plist td:nth-child(3){width:150px}
+.plist td:nth-child(4){width:40px}
+.m-cash{color:var(--cash)} .m-pp{color:var(--pp)} .m-none{color:var(--sub)}
+.daysum{margin-top:10px;background:#f9fafb;border-radius:8px;padding:10px;font-size:14px;line-height:1.7}
+.pos{color:var(--red);font-weight:bold} .neg{color:var(--green);font-weight:bold} .zero{color:var(--sub)}
+.big{font-size:22px;font-weight:bold;text-align:center;padding:16px;border-radius:12px;margin:8px 0}
+.big.toboss{background:#fef2f2;color:#991b1b}
+.big.tome{background:#ecfdf5;color:#065f46}
+.big.even{background:#f3f4f6;color:#374151}
+.hint{font-size:13px;color:var(--sub);line-height:1.6}
+.how{font-size:14px;line-height:1.8}
+.how b{color:#1e3a8a}
+textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;border:1px solid #cbd5e1;border-radius:8px}
+.chk{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
+.bulk{margin-top:8px;padding:8px;border:1px dashed #cbd5e1;border-radius:8px}
+.bulk input[type=number]{width:80px}
+@media (max-width:560px){
+ .plist td:nth-child(2){width:84px}.plist td:nth-child(3){width:118px}
+ .plist select{font-size:13px;padding:6px 4px}
+}
+@media print{button,.noprint{display:none!important}body{background:#fff}.card,.day{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+ <h1>体育館代 精算ツール</h1>
+ <p>体育館代の立て替え・現金・Boss宛PayPayをまとめて、最後に「誰が誰にいくら渡せば精算完了か」を出します。</p>
+</header>
+<main>
+
+<div class="card how">
+ <h2>使い方（一言でいうと：日ごとに数字を入れるだけ）</h2>
+ ① 「＋ 日を追加」で日付を作る<br>
+ ② <b>体育館に払った額</b>（あなたが現金で払った額）を入れる<br>
+ ③ <b>参加者</b>を追加して、それぞれ「現金→私」か「PayPay→Boss」を選ぶ（名前は空でもOK／「まとめて追加」も可）<br>
+ ④ <b>Bossから受け取った額</b>を入れる（ふつうは体育館代と同じ）<br>
+ ⑤ 一番下の <b>精算結果</b> を見て、その金額を渡す → LINE用の文面もコピーできます
+ <div class="hint" style="margin-top:6px">入力内容はこの端末のブラウザに自動保存されます（サーバーには送られません）。</div>
+</div>
+
+<div class="card">
+ <h2>設定</h2>
+ <div class="grid">
+  <div class="field"><label>参加費（1人あたり・初期値）</label><input type="number" id="defFee" min="0" step="10"></div>
+  <div class="field"><label>体育館代（1日あたり・初期値）</label><input type="number" id="defGym" min="0" step="10"></div>
+  <div class="field"><label>Bossの呼び名</label><input type="text" id="bossName"></div>
+  <div class="field"><label>黒字・赤字はだれのもの？</label>
+   <select id="rule">
+    <option value="boss">Bossのもの（私は立て替えただけ＝私は±0円）</option>
+    <option value="half">Bossと私で半分ずつ</option>
+    <option value="me">私のもの（Bossは±0円）</option>
+   </select></div>
+ </div>
+</div>
+
+<div id="days"></div>
+<div class="row noprint" style="margin-bottom:14px">
+ <button class="pri" id="addDay">＋ 日を追加</button>
+</div>
+
+<div class="card" id="result"></div>
+
+<div class="card noprint">
+ <h2>保存・その他</h2>
+ <div class="row">
+  <button id="exportBtn">ファイルに保存（バックアップ）</button>
+  <button id="importBtn">ファイルから読み込み</button>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  <button onclick="window.print()">印刷 / PDF</button>
+  <button id="sampleBtn">サンプルを入れてみる</button>
+  <button id="resetBtn" style="color:var(--red)">全部消す</button>
+ </div>
+</div>
+
+</main>
+<script>
+const KEY='gymSeisan:v1';
+const yen=n=>(n<0?'-':'')+'¥'+Math.abs(Math.round(n)).toLocaleString('ja-JP');
+const uid=()=>Math.random().toString(36).slice(2,9);
+const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+const METHODS={cash:'現金→私',pp:'PayPay→Boss',none:'未払い'};
+let S=load();
+
+function blank(){return {settings:{defFee:1000,defGym:3050,bossName:'Boss',rule:'boss'},days:[]}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.days)return Object.assign(blank(),s,{settings:Object.assign(blank().settings,s.settings)})}catch(e){}return blank()}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+const num=v=>{const n=Number(v);return isFinite(n)?n:0};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const B=()=>S.settings.bossName||'Boss';
+
+function calc(d){
+ const gym=num(d.gym);
+ let cash=0,pp=0,none=0,nc=0,np=0,nn=0;
+ d.people.forEach(p=>{const a=num(p.amount);if(p.method==='cash'){cash+=a;nc++}else if(p.method==='pp'){pp+=a;np++}else{none+=a;nn++}});
+ const reimb=d.reimbSame?gym:num(d.reimb);
+ const me=-gym+cash+reimb;
+ const boss=pp-reimb;
+ const profit=cash+pp-gym;
+ return {gym,cash,pp,none,nc,np,nn,reimb,me,boss,profit};
+}
+function shareOfMe(profit){const r=S.settings.rule;return r==='boss'?0:r==='half'?profit/2:profit}
+
+function render(){
+ document.getElementById('defFee').value=S.settings.defFee;
+ document.getElementById('defGym').value=S.settings.defGym;
+ document.getElementById('bossName').value=S.settings.bossName;
+ document.getElementById('rule').value=S.settings.rule;
+ const wrap=document.getElementById('days');
+ if(!S.days.length){wrap.innerHTML='<div class="card hint">まだ日がありません。「＋ 日を追加」から始めてください。</div>';renderResult();return}
+ wrap.innerHTML=S.days.map((d,i)=>dayHTML(d,i)).join('');
+ renderResult();
+}
+function dayHTML(d,i){
+ const c=calc(d);
+ const rows=d.people.map((p,j)=>`<tr>
+   <td><input type="text" placeholder="名前（空でもOK）" value="${esc(p.name)}" data-k="pname" data-i="${i}" data-j="${j}"></td>
+   <td><input type="number" min="0" step="10" value="${esc(p.amount)}" data-k="pamt" data-i="${i}" data-j="${j}"></td>
+   <td><select data-k="pmethod" data-i="${i}" data-j="${j}" class="m-${p.method}">${Object.entries(METHODS).map(([k,v])=>`<option value="${k}" ${p.method===k?'selected':''}>${k==='pp'?'PayPay→'+esc(B()):v}</option>`).join('')}</select></td>
+   <td><button class="del" data-act="delP" data-i="${i}" data-j="${j}" title="削除">✕</button></td></tr>`).join('');
+ const meCls=c.me>0?'pos':c.me<0?'neg':'zero';
+ return `<div class="day">
+ <div class="dayhead">
+  <input type="date" value="${esc(d.date)}" data-k="date" data-i="${i}">
+  <input type="text" class="memo" placeholder="メモ（例：新宿 夜間）" value="${esc(d.memo)}" data-k="memo" data-i="${i}">
+  <button class="del" data-act="delDay" data-i="${i}">この日を削除</button>
+ </div>
+ <div class="daybody">
+  <div class="grid">
+   <div class="field"><label>体育館に払った額（私が現金で）</label><input type="number" min="0" step="10" value="${esc(d.gym)}" data-k="gym" data-i="${i}"></div>
+   <div class="field"><label>${esc(B())}から受け取った額</label>
+    <label class="chk"><input type="checkbox" ${d.reimbSame?'checked':''} data-k="reimbSame" data-i="${i}">体育館代と同じ額をもらった</label>
+    ${d.reimbSame?'':`<input type="number" min="0" step="10" value="${esc(d.reimb)}" data-k="reimb" data-i="${i}" placeholder="もらってなければ0">`}
+   </div>
+  </div>
+  <h2 style="margin-top:12px;font-size:14px">参加者（${d.people.length}人）</h2>
+  <table class="plist"><thead><tr><th>名前</th><th class="num">金額</th><th>払い方</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="row noprint" style="margin-top:8px">
+   <button class="sm" data-act="addP" data-m="cash" data-i="${i}">＋ 現金の人</button>
+   <button class="sm" data-act="addP" data-m="pp" data-i="${i}">＋ PayPayの人</button>
+  </div>
+  <div class="bulk row noprint">
+   <span class="hint">まとめて追加：</span>
+   <input type="number" min="1" value="1" id="bn${i}"> 人 ×
+   <input type="number" min="0" step="10" value="${esc(S.settings.defFee)}" id="ba${i}"> 円
+   <select id="bm${i}"><option value="cash">現金→私</option><option value="pp">PayPay→${esc(B())}</option></select>
+   <button class="sm" data-act="bulk" data-i="${i}">追加</button>
+  </div>
+  <div class="daysum">
+   現金で私が受け取った：<b class="m-cash">${yen(c.cash)}</b>（${c.nc}人）／ PayPayで${esc(B())}へ：<b class="m-pp">${yen(c.pp)}</b>（${c.np}人）${c.nn?` ／ 未払い：${yen(c.none)}（${c.nn}人）`:''}<br>
+   集金合計 ${yen(c.cash+c.pp)} − 体育館代 ${yen(c.gym)} ＝ <b>${c.profit>=0?'黒字 ':'赤字 '}${yen(Math.abs(c.profit))}</b><br>
+   この日の私の手元：−${yen(c.gym).replace('-','')}（体育館）＋${yen(c.cash)}（現金）＋${yen(c.reimb)}（${esc(B())}から）＝ <span class="${meCls}">${c.me>=0?'+':''}${yen(c.me)}</span>
+  </div>
+ </div></div>`;
+}
+function totals(){
+ const t={gym:0,cash:0,pp:0,none:0,reimb:0,me:0,boss:0,profit:0,n:0};
+ S.days.forEach(d=>{const c=calc(d);for(const k of ['gym','cash','pp','none','reimb','me','boss','profit'])t[k]+=c[k];t.n+=d.people.length});
+ t.fairMe=shareOfMe(t.profit);
+ t.transfer=t.me-t.fairMe; // >0: 私→Boss
+ return t;
+}
+function renderResult(){
+ const t=totals(),el=document.getElementById('result');
+ if(!S.days.length){el.innerHTML='<h2>精算結果</h2><div class="hint">日を追加すると、ここに結果が出ます。</div>';return}
+ const tr=Math.round(t.transfer);
+ const big=tr>0?`<div class="big toboss">あなた → ${esc(B())} に <span style="font-size:28px">${yen(tr)}</span> 渡せば精算完了</div>`
+  :tr<0?`<div class="big tome">${esc(B())} → あなた に <span style="font-size:28px">${yen(-tr)}</span> 渡してもらえば精算完了</div>`
+  :`<div class="big even">精算は不要です（±0円）</div>`;
+ const rows=S.days.map(d=>{const c=calc(d);return `<tr><td>${esc(fmtDate(d.date))}${d.memo?' '+esc(d.memo):''}</td><td class="num">${yen(c.gym)}</td><td class="num m-cash">${yen(c.cash)}</td><td class="num m-pp">${yen(c.pp)}</td><td class="num">${yen(c.reimb)}</td><td class="num">${yen(c.profit)}</td><td class="num"><b>${c.me>=0?'+':''}${yen(c.me)}</b></td></tr>`}).join('');
+ const ruleTxt={boss:`黒字・赤字はすべて${B()}のもの（あなたは立て替えただけなので±0円になるように精算）`,half:`黒字・赤字は${B()}とあなたで半分ずつ`,me:`黒字・赤字はすべてあなたのもの（${B()}は±0円）`}[S.settings.rule];
+ el.innerHTML=`<h2>精算結果（${S.days.length}日分・参加 延べ${t.n}人）</h2>
+ ${big}
+ <div style="overflow-x:auto"><table>
+  <thead><tr><th>日付</th><th class="num">体育館代</th><th class="num">現金→私</th><th class="num">PayPay→${esc(B())}</th><th class="num">${esc(B())}→私</th><th class="num">黒字/赤字</th><th class="num">私の手元</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><th>合計</th><th class="num">${yen(t.gym)}</th><th class="num">${yen(t.cash)}</th><th class="num">${yen(t.pp)}</th><th class="num">${yen(t.reimb)}</th><th class="num">${yen(t.profit)}</th><th class="num"><b>${t.me>=0?'+':''}${yen(t.me)}</b></th></tr></tfoot>
+ </table></div>
+ <div class="daysum">
+  <b>計算の考え方</b><br>
+  ・今のあなたの手元：体育館代 −${yen(t.gym).replace('-','')} ＋ 現金 ${yen(t.cash)} ＋ ${esc(B())}から ${yen(t.reimb)} ＝ <b>${t.me>=0?'+':''}${yen(t.me)}</b><br>
+  ・今の${esc(B())}の手元：PayPay ${yen(t.pp)} − あなたへ ${yen(t.reimb)} ＝ <b>${t.boss>=0?'+':''}${yen(t.boss)}</b><br>
+  ・全体の黒字/赤字：${yen(t.profit)}（ルール：${esc(ruleTxt)}）<br>
+  ・あなたの本来の取り分 ${yen(t.fairMe)} にそろえるため、差額 <b>${yen(Math.abs(tr))}</b> を${tr>=0?'あなたから'+esc(B())+'へ':esc(B())+'からあなたへ'}。
+  ${t.none?`<br><span style="color:var(--red)">※ 未払いの人が ${yen(t.none)} 分います（計算には入っていません）。</span>`:''}
+ </div>
+ <h2 style="margin-top:14px;font-size:14px">LINE用の文面（コピーして送れます）</h2>
+ <textarea id="msg" readonly>${esc(message(t))}</textarea>
+ <div class="row noprint" style="margin-top:6px"><button class="pri" id="copyBtn">文面をコピー</button><span class="hint" id="copied"></span></div>`;
+ document.getElementById('copyBtn').onclick=copyMsg;
+}
+function fmtDate(s){if(!s)return '(日付なし)';const d=new Date(s+'T00:00:00');return `${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]})`}
+function message(t){
+ const tr=Math.round(t.transfer);
+ let s=`${B()}さん\n体育館代の精算をまとめました（${S.days.length}日分）。\n\n`;
+ S.days.forEach(d=>{const c=calc(d);s+=`■${fmtDate(d.date)}${d.memo?' '+d.memo:''}\n 体育館代 ${yen(c.gym)}（私が現金で支払い）\n 現金→私 ${yen(c.cash)}（${c.nc}人）／PayPay→${B()}さん ${yen(c.pp)}（${c.np}人）\n ${B()}さん→私 ${yen(c.reimb)}\n`});
+ s+=`\n【合計】\n 体育館代 ${yen(t.gym)}\n 私が現金で受け取った ${yen(t.cash)}\n ${B()}さんがPayPayで受け取った ${yen(t.pp)}\n ${B()}さんから私へ ${yen(t.reimb)}\n\n`;
+ s+=tr>0?`私が多く受け取っていたので、${yen(tr)} を${B()}さんにお返しします。`:tr<0?`${yen(-tr)} を${B()}さんから私にいただければ精算完了です。`:`過不足なしで精算完了です。`;
+ return s;
+}
+function copyMsg(){const ta=document.getElementById('msg');const done=()=>{document.getElementById('copied').textContent='コピーしました'};
+ if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(ta.value).then(done,()=>{ta.select();document.execCommand('copy');done()});else{ta.select();document.execCommand('copy');done()}}
+
+function newDay(){const last=S.days[S.days.length-1];return {id:uid(),date:today(),memo:last?last.memo:'',gym:S.settings.defGym,reimbSame:true,reimb:S.settings.defGym,people:[]}}
+function addPerson(d,method,amount){d.people.push({name:'',amount:amount??S.settings.defFee,method})}
+
+document.addEventListener('input',e=>{
+ const t=e.target,k=t.dataset.k;if(!k)return;const d=S.days[+t.dataset.i];if(!d)return;
+ if(k==='date'||k==='memo'||k==='gym'||k==='reimb'){d[k]=t.type==='number'?t.value:t.value}
+ else if(k==='pname')d.people[+t.dataset.j].name=t.value;
+ else if(k==='pamt')d.people[+t.dataset.j].amount=t.value;
+ else return;
+ save();refreshSums(+t.dataset.i);
+});
+document.addEventListener('change',e=>{
+ const t=e.target,k=t.dataset.k;
+ if(k==='pmethod'){S.days[+t.dataset.i].people[+t.dataset.j].method=t.value;save();render();return}
+ if(k==='reimbSame'){const d=S.days[+t.dataset.i];d.reimbSame=t.checked;if(!t.checked&&d.reimb==='')d.reimb=d.gym;save();render();return}
+ if(k==='date'){S.days.sort((a,b)=>(a.date||'').localeCompare(b.date||''));save();render();return}
+ if(k==='gym'||k==='pamt'||k==='reimb'){render()}
+});
+function refreshSums(i){
+ // re-render only summaries to keep focus in the input
+ const dayEl=document.querySelectorAll('.day')[i];
+ if(dayEl){const tmp=document.createElement('div');tmp.innerHTML=dayHTML(S.days[i],i);dayEl.querySelector('.daysum').innerHTML=tmp.querySelector('.daysum').innerHTML}
+ renderResult();
+}
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-act]');if(!t)return;const i=+t.dataset.i,d=S.days[i];
+ switch(t.dataset.act){
+  case 'delDay':if(confirm(`${fmtDate(d.date)} を削除しますか？`)){S.days.splice(i,1)}break;
+  case 'addP':addPerson(d,t.dataset.m);break;
+  case 'delP':d.people.splice(+t.dataset.j,1);break;
+  case 'bulk':{const n=Math.max(0,Math.min(100,num(document.getElementById('bn'+i).value)));const a=document.getElementById('ba'+i).value;const m=document.getElementById('bm'+i).value;for(let k=0;k<n;k++)addPerson(d,m,a);break}
+ }
+ save();render();
+});
+document.getElementById('addDay').onclick=()=>{S.days.push(newDay());save();render();const all=document.querySelectorAll('.day');all[all.length-1].scrollIntoView({behavior:'smooth',block:'start'})};
+['defFee','defGym'].forEach(id=>document.getElementById(id).addEventListener('input',e=>{S.settings[id]=num(e.target.value);save()}));
+document.getElementById('bossName').addEventListener('input',e=>{S.settings.bossName=e.target.value;save()});
+document.getElementById('bossName').addEventListener('change',()=>render());
+document.getElementById('rule').addEventListener('change',e=>{S.settings.rule=e.target.value;save();render()});
+document.getElementById('resetBtn').onclick=()=>{if(confirm('入力した内容を全部消します。よろしいですか？')){S=blank();save();render()}};
+document.getElementById('sampleBtn').onclick=()=>{
+ if(S.days.length&&!confirm('今の入力を消してサンプルを入れます。よろしいですか？'))return;
+ S=blank();
+ const mk=(date,memo,cashN,ppN)=>{const d={id:uid(),date,memo,gym:3050,reimbSame:true,reimb:3050,people:[]};for(let k=0;k<cashN;k++)addPerson(d,'cash',1000);for(let k=0;k<ppN;k++)addPerson(d,'pp',1000);return d};
+ S.days=[mk('2026-10-03','夜間',2,3),mk('2026-10-10','夜間',3,2),mk('2026-10-17','夜間',1,4)];
+ save();render();
+};
+document.getElementById('exportBtn').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='体育館精算_'+today()+'.json';a.click()};
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(txt=>{try{const s=JSON.parse(txt);if(!s.days)throw 0;S=Object.assign(blank(),s,{settings:Object.assign(blank().settings,s.settings)});save();render()}catch(_){alert('読み込めないファイルです')}});e.target.value=''};
+render();
+</script>
+</body>
+</html>
