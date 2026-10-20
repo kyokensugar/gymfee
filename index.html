@@ -68,7 +68,7 @@ textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;bor
 <div class="card how">
  <h2>使い方（一言でいうと：日ごとに数字を入れるだけ）</h2>
  ① 「＋ 日を追加」で日付を作る<br>
- ② <b>体育館に払った額</b>（あなたが現金で払った額）を入れる<br>
+ ② <b>体育館に払った額</b>（あなたが現金で払った額）をその日ごとに入れる<br>
  ③ <b>参加者</b>を追加して、それぞれ「現金→私」か「PayPay→Boss」を選ぶ（名前は空でもOK／「まとめて追加」も可）<br>
  ④ <b>Bossから受け取った額</b>を入れる（ふつうは体育館代と同じ）<br>
  ⑤ 一番下の <b>精算結果</b> を見て、その金額を渡す → LINE用の文面もコピーできます
@@ -79,7 +79,6 @@ textarea{width:100%;min-height:170px;font:inherit;font-size:13px;padding:8px;bor
  <h2>設定</h2>
  <div class="grid">
   <div class="field"><label>参加費（1人あたり・初期値）</label><input type="number" id="defFee" min="0" step="10"></div>
-  <div class="field"><label>体育館代（1日あたり・初期値）</label><input type="number" id="defGym" min="0" step="10"></div>
   <div class="field"><label>Bossの呼び名</label><input type="text" id="bossName"></div>
   <div class="field"><label>黒字・赤字はだれのもの？</label>
    <select id="rule">
@@ -118,7 +117,7 @@ const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOff
 const METHODS={cash:'現金→私',pp:'PayPay→Boss',none:'未払い'};
 let S=load();
 
-function blank(){return {settings:{defFee:1000,defGym:3050,bossName:'Boss',rule:'boss'},days:[]}}
+function blank(){return {settings:{defFee:1000,bossName:'Boss',rule:'boss'},days:[]}}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.days)return Object.assign(blank(),s,{settings:Object.assign(blank().settings,s.settings)})}catch(e){}return blank()}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 const num=v=>{const n=Number(v);return isFinite(n)?n:0};
@@ -139,7 +138,6 @@ function shareOfMe(profit){const r=S.settings.rule;return r==='boss'?0:r==='half
 
 function render(){
  document.getElementById('defFee').value=S.settings.defFee;
- document.getElementById('defGym').value=S.settings.defGym;
  document.getElementById('bossName').value=S.settings.bossName;
  document.getElementById('rule').value=S.settings.rule;
  const wrap=document.getElementById('days');
@@ -163,7 +161,7 @@ function dayHTML(d,i){
  </div>
  <div class="daybody">
   <div class="grid">
-   <div class="field"><label>体育館に払った額（私が現金で）</label><input type="number" min="0" step="10" value="${esc(d.gym)}" data-k="gym" data-i="${i}"></div>
+   <div class="field"><label>体育館に払った額（私が現金で）</label><input type="number" min="0" step="10" value="${esc(d.gym)}" data-k="gym" data-i="${i}" placeholder="例：3050"${d.gym===''?' style="border-color:#dc2626"':''}></div>
    <div class="field"><label>${esc(B())}から受け取った額</label>
     <label class="chk"><input type="checkbox" ${d.reimbSame?'checked':''} data-k="reimbSame" data-i="${i}">体育館代と同じ額をもらった</label>
     ${d.reimbSame?'':`<input type="number" min="0" step="10" value="${esc(d.reimb)}" data-k="reimb" data-i="${i}" placeholder="もらってなければ0">`}
@@ -237,7 +235,7 @@ function message(t){
 function copyMsg(){const ta=document.getElementById('msg');const done=()=>{document.getElementById('copied').textContent='コピーしました'};
  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(ta.value).then(done,()=>{ta.select();document.execCommand('copy');done()});else{ta.select();document.execCommand('copy');done()}}
 
-function newDay(){const last=S.days[S.days.length-1];return {id:uid(),date:today(),memo:last?last.memo:'',gym:S.settings.defGym,reimbSame:true,reimb:S.settings.defGym,people:[]}}
+function newDay(){const last=S.days[S.days.length-1];return {id:uid(),date:today(),memo:last?last.memo:'',gym:'',reimbSame:true,reimb:'',people:[]}}
 function addPerson(d,method,amount){d.people.push({name:'',amount:amount??S.settings.defFee,method})}
 
 document.addEventListener('input',e=>{
@@ -272,7 +270,7 @@ document.addEventListener('click',e=>{
  save();render();
 });
 document.getElementById('addDay').onclick=()=>{S.days.push(newDay());save();render();const all=document.querySelectorAll('.day');all[all.length-1].scrollIntoView({behavior:'smooth',block:'start'})};
-['defFee','defGym'].forEach(id=>document.getElementById(id).addEventListener('input',e=>{S.settings[id]=num(e.target.value);save()}));
+['defFee'].forEach(id=>document.getElementById(id).addEventListener('input',e=>{S.settings[id]=num(e.target.value);save()}));
 document.getElementById('bossName').addEventListener('input',e=>{S.settings.bossName=e.target.value;save()});
 document.getElementById('bossName').addEventListener('change',()=>render());
 document.getElementById('rule').addEventListener('change',e=>{S.settings.rule=e.target.value;save();render()});
@@ -281,7 +279,7 @@ document.getElementById('sampleBtn').onclick=()=>{
  if(S.days.length&&!confirm('今の入力を消してサンプルを入れます。よろしいですか？'))return;
  S=blank();
  const mk=(date,memo,cashN,ppN)=>{const d={id:uid(),date,memo,gym:3050,reimbSame:true,reimb:3050,people:[]};for(let k=0;k<cashN;k++)addPerson(d,'cash',1000);for(let k=0;k<ppN;k++)addPerson(d,'pp',1000);return d};
- S.days=[mk('2026-10-03','夜間',2,3),mk('2026-10-10','夜間',3,2),mk('2026-10-17','夜間',1,4)];
+ S.days=[mk('2026-10-03','夜間',2,3),mk('2026-10-10','夜間',3,2),mk('2026-10-17','夜間',1,4)];S.days[1].gym=5300;
  save();render();
 };
 document.getElementById('exportBtn').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='体育館精算_'+today()+'.json';a.click()};
